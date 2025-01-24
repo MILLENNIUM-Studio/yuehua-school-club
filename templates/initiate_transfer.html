@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-sm-10">
+        <h2 class="text-center">发起名额转让</h2>
+        <form method="POST" action="{{ url_for('initiate_transfer') }}">
+        
+            <div class="mb-3">
+                {{ form.club.label(class="form-label") }}
+                {{ form.club(class="form-select") }}
+            </div>
+            <div class="mb-3">
+                {{ form.target_user.label(class="form-label") }}
+                {{ form.target_user(class="form-select") }}
+            </div>
+            {{ form.submit(class="btn btn-warning w-100") }}
+        </form>
+    </div>
+</div>
+{% endblock %} 

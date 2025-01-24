@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="text-white">{{ club.name }} 的详情</h2>
+<p class="text-white">{{ club.description }}</p>
+<a href="{{ url_for('index') }}" class="btn btn-primary">返回首页</a>
+{% endblock %}

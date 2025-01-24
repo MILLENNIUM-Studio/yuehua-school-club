@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <h2 class="text-center mb-5">欢迎, {{ current_user.username }}!</h2>
+
+    {% if pending_transfers_count > 0 and current_user.role == 'student' %}
+    <div class="alert alert-info alert-dismissible fade show" role="alert">
+        您有 {{ pending_transfers_count }} 个待确认的转让请求。
+        <a href="{{ url_for('confirm_transfer') }}" class="alert-link">点击处理</a>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+
+    <h3 class="mb-4">社团列表</h3>
+
+    
+
+    
+<table class="table">
+    <thead>
+        <tr>
+            <th>名称</th>
+            <th>描述</th>
+            <th>详情</th>
+            {% if current_user.is_admin() %}
+            <th>操作</th>
+            {% endif %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for club in clubs %}
+        <tr>
+            <td>{{ club.name }}</td>
+            <td>{{ club.description }}</td>
+            <td><a href="{{ url_for('club_details', club_id=club.id) }}" class="btn btn-info">查看</a></td>
+            {% if current_user.is_admin() %}
+            <td>
+                <a href="{{ url_for('edit_club', club_id=club.id) }}" class="btn btn-warning">编辑</a>
+                <a href="{{ url_for('edit_club_limit', club_id=club.id) }}" class="btn btn-secondary">修改人数限制</a>
+                <form action="{{ url_for('delete_club', club_id=club.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('确定要删除这个社团吗？');">
+                    <button type="submit" class="btn btn-danger">删除</button>
+                </form>
+            </td>
+            {% endif %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2>您加入的社团</h2>
+<ul>
+    {% for membership in current_user.memberships %}
+    <li>{{ membership.club.name }}</li>
+    {% else %}
+    <li>您尚未加入任何社团。</li>
+    {% endfor %}
+</ul>
+
+<div class="row">
+    {% for club in clubs %}
+    <div class="col-md-4 mb-4">
+        <div class="card frosted-glass">
+            <div class="card-body">
+                <h5 class="card-title">{{ club.name }}</h5>
+                <p class="card-text">
+                    成员数: {{ club.memberships|length }}
+                </p>
+                {% if current_user.role == 'student' %}
+                {% if club.id in user_memberships %}
+                <form method="POST" action="{{ url_for('leave_club') }}">
+                    <input type="hidden" name="club_id" value="{{ club.id }}">
+                    <button type="submit" class="btn btn-danger w-100">退出社团</button>
+                </form>
+                {% else %}
+                <form method="POST" action="{{ url_for('join_club') }}">
+                    {{ JoinClubForm.csrf_token }}
+                    <input type="hidden" name="club" value="{{ club.id }}">
+                    <button type="submit" class="btn btn-primary w-100">加入社团</button>
+                </form>
+                {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock content %}
+
+<meta name="viewport" content="width=device-width, initial-scale=1">

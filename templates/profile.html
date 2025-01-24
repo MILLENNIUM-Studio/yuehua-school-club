@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <h2 class="text-center">个人资料</h2>
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">用户名: {{ current_user.username }}</h5>
+                <p class="card-text">角色: {% if current_user.is_admin() %}管理员{% else %}普通用户{% endif %}</p>
+                <!-- 可以添加更多用户信息 -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

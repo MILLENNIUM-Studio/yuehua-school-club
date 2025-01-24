@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-sm-10">
+        <h2 class="text-center">确认名额转让</h2>
+        <form method="POST" action="{{ url_for('confirm_transfer') }}">
+        
+            <div class="mb-3">
+                {{ form.transfer_id.label(class="form-label") }}
+                {{ form.transfer_id(class="form-select") }}
+            </div>
+            <div class="mb-3">
+                {{ form.action.label(class="form-label") }}
+                {{ form.action(class="form-select") }}
+            </div>
+            {{ form.submit(class="btn btn-primary w-100") }}
+        </form>
+    </div>
+</div>
+{% endblock %} 
