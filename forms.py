@@ -4,14 +4,27 @@ from wtforms.validators import DataRequired, Length, ValidationError, EqualTo
 from models import User
 
 class LoginForm(FlaskForm):
-    username = StringField('用户名', validators=[DataRequired(), Length(min=2, max=25)])
-    password = PasswordField('密码', validators=[DataRequired(), Length(min=8)])
+    class Meta:
+        csrf = False  # 禁用表单级别的 CSRF 保护
+    
+    username = StringField('用户名', 
+        validators=[DataRequired(), Length(min=2, max=25)],
+        render_kw={"autocomplete": "username"})
+    password = PasswordField('密码', 
+        validators=[DataRequired(), Length(min=8)],
+        render_kw={"autocomplete": "current-password"})
     submit = SubmitField('登录')
 
 class RegisterForm(FlaskForm):
-    username = StringField('用户名', validators=[DataRequired(), Length(min=4, max=25)])
-    password = PasswordField('密码', validators=[DataRequired(), Length(min=6)])
-    confirm_password = PasswordField('确认密码', validators=[DataRequired(), EqualTo('password')])
+    username = StringField('用户名', 
+        validators=[DataRequired(), Length(min=4, max=25)],
+        render_kw={"autocomplete": "username"})
+    password = PasswordField('密码', 
+        validators=[DataRequired(), Length(min=6)],
+        render_kw={"autocomplete": "new-password"})
+    confirm_password = PasswordField('确认密码', 
+        validators=[DataRequired(), EqualTo('password')],
+        render_kw={"autocomplete": "new-password"})
     submit = SubmitField('注册')
     
     def validate_username(self, username):
@@ -80,4 +93,8 @@ class EditClubForm(FlaskForm):
 
 class EditClubLimitForm(FlaskForm):
     member_limit = IntegerField('人数限制', validators=[DataRequired()])
-    submit = SubmitField('更新人数限制') 
+    submit = SubmitField('更新人数限制')
+
+class DeleteClubForm(FlaskForm):
+    club = SelectField('选择要删除的课程', coerce=int, validators=[DataRequired()])
+    submit = SubmitField('确认删除') 

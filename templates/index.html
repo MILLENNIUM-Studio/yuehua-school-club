@@ -3,87 +3,362 @@
 <div class="container py-4">
     <h2 class="text-center mb-5">欢迎, {{ current_user.username }}!</h2>
 
-    {% if pending_transfers_count > 0 and current_user.role == 'student' %}
-    <div class="alert alert-info alert-dismissible fade show" role="alert">
-        您有 {{ pending_transfers_count }} 个待确认的转让请求。
-        <a href="{{ url_for('confirm_transfer') }}" class="alert-link">点击处理</a>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    {% endif %}
-
-    <h3 class="mb-4">社团列表</h3>
-
-    
-
-    
-<table class="table">
-    <thead>
-        <tr>
-            <th>名称</th>
-            <th>描述</th>
-            <th>详情</th>
-            {% if current_user.is_admin() %}
-            <th>操作</th>
-            {% endif %}
-        </tr>
-    </thead>
-    <tbody>
-        {% for club in clubs %}
-        <tr>
-            <td>{{ club.name }}</td>
-            <td>{{ club.description }}</td>
-            <td><a href="{{ url_for('club_details', club_id=club.id) }}" class="btn btn-info">查看</a></td>
-            {% if current_user.is_admin() %}
-            <td>
-                <a href="{{ url_for('edit_club', club_id=club.id) }}" class="btn btn-warning">编辑</a>
-                <a href="{{ url_for('edit_club_limit', club_id=club.id) }}" class="btn btn-secondary">修改人数限制</a>
-                <form action="{{ url_for('delete_club', club_id=club.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('确定要删除这个社团吗？');">
-                    <button type="submit" class="btn btn-danger">删除</button>
-                </form>
-            </td>
-            {% endif %}
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-
-<h2>您加入的社团</h2>
-<ul>
-    {% for membership in current_user.memberships %}
-    <li>{{ membership.club.name }}</li>
-    {% else %}
-    <li>您尚未加入任何社团。</li>
-    {% endfor %}
-</ul>
-
-<div class="row">
-    {% for club in clubs %}
-    <div class="col-md-4 mb-4">
-        <div class="card frosted-glass">
-            <div class="card-body">
-                <h5 class="card-title">{{ club.name }}</h5>
-                <p class="card-text">
-                    成员数: {{ club.memberships|length }}
-                </p>
-                {% if current_user.role == 'student' %}
-                {% if club.id in user_memberships %}
-                <form method="POST" action="{{ url_for('leave_club') }}">
-                    <input type="hidden" name="club_id" value="{{ club.id }}">
-                    <button type="submit" class="btn btn-danger w-100">退出社团</button>
-                </form>
-                {% else %}
-                <form method="POST" action="{{ url_for('join_club') }}">
-                    {{ JoinClubForm.csrf_token }}
-                    <input type="hidden" name="club" value="{{ club.id }}">
-                    <button type="submit" class="btn btn-primary w-100">加入社团</button>
-                </form>
-                {% endif %}
-                {% endif %}
+    {% if current_user.is_admin() %}
+    <!-- 管理员控制面板 -->
+    <div class="card frosted-glass mb-4">
+        <div class="card-header">
+            <h3 class="mb-0">社团管理</h3>
+        </div>
+        <div class="card-body">
+            <div class="list-container">
+                <div class="list-header">
+                    <h3>社团管理</h3>
+                </div>
+                {% for club in clubs %}
+                <div class="list-item">
+                    <div class="item-content">
+                        <div class="info-group">
+                            <div class="info-row">
+                                <span class="info-label">ID</span>
+                                <span class="info-value">{{ club.id }}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">名称</span>
+                                <span class="info-value">{{ club.name }}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">人数</span>
+                                <span class="info-value">{{ club.memberships|length }}/{{ club.member_limit }}</span>
+                                <span class="status-badge {{ 'status-full' if club.memberships|length >= club.member_limit else 'status-active' }}">
+                                    {{ '已满' if club.memberships|length >= club.member_limit else '可加入' }}
+                                </span>
+                            </div>
+                            <div class="description">{{ club.description }}</div>
+                        </div>
+                        <div class="action-group">
+                            <button class="action-btn btn-edit" onclick="window.location.href='{{ url_for('edit_club', club_id=club.id) }}'">
+                                <i class="fas fa-edit"></i>编辑
+                            </button>
+                            <button class="action-btn btn-manage" onclick="window.location.href='{{ url_for('edit_club_limit', club_id=club.id) }}'">
+                                <i class="fas fa-users"></i>修改人数
+                            </button>
+                            <button class="action-btn btn-delete" onclick="showDeleteConfirm('club', {{ club.id }}, '{{ club.name }}')">
+                                <i class="fas fa-trash-alt"></i>删除
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
             </div>
         </div>
     </div>
+
+    <div class="card frosted-glass mb-4">
+        <div class="card-body">
+            <div class="list-container">
+                <div class="list-header">
+                    <h3>用户管理</h3>
+                </div>
+                {% for user in users %}
+                <div class="list-item">
+                    <div class="item-content">
+                        <div class="info-group">
+                            <div class="info-row">
+                                <span class="info-label">ID</span>
+                                <span class="info-value">{{ user.id }}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">用户名</span>
+                                <span class="info-value">{{ user.username }}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">角色</span>
+                                <span class="info-value">
+                                    <span class="status-badge {{ 'status-admin' if user.role == 'admin' else 'status-student' }}">
+                                        {{ "管理员" if user.role == "admin" else "学生" }}
+                                    </span>
+                                </span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">加入社团</span>
+                                <span class="info-value clubs-list">
+                                    {% if user.memberships %}
+                                        {% for membership in user.memberships %}
+                                            <span class="club-tag">{{ membership.club.name }}</span>
+                                        {% endfor %}
+                                    {% else %}
+                                        <span class="status-badge status-empty">无</span>
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+                        {% if user.role != "admin" %}
+                        <div class="action-group">
+                            <button class="action-btn btn-delete" onclick="showDeleteConfirm('user', {{ user.id }}, '{{ user.username }}')">
+                                <i class="fas fa-trash-alt"></i>删除
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+    {% if pending_transfers_count > 0 and current_user.role == 'student' %}
+    <div class="transfer-alert" role="alert">
+        <div class="alert-content">
+            <div class="alert-icon">
+                <i class="fas fa-exchange-alt"></i>
+            </div>
+            <div class="alert-text">
+                您有 {{ pending_transfers_count }} 个待确认的转让请求
+            </div>
+            <a href="{{ url_for('confirm_transfer') }}" class="alert-link">
+                <i class="fas fa-arrow-right"></i>
+                点击处理
+            </a>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+{% endif %}
+
+    <h3 class="mb-4">社团列表</h3>
+<div class="row">
+    {% for club in clubs %}
+        <div class="col-md-4 mb-4">
+            <div class="card frosted-glass">
+                <div class="card-body">
+                    <h5 class="card-title">{{ club.name }}</h5>
+                    <p class="card-text">
+                        成员数: {{ club.memberships|length }}
+                    </p>
+                    {% if current_user.role == 'student' %}
+                        {% if club.id in user_memberships %}
+                        <form method="POST" action="{{ url_for('leave_club') }}" class="mb-2">
+                                <input type="hidden" name="club_id" value="{{ club.id }}">
+                                <button type="submit" class="btn btn-danger w-100">退出社团</button>
+                            </form>
+                        {% else %}
+                        <form method="POST" action="{{ url_for('join_club') }}" class="mb-2">
+                            <input type="hidden" name="club" value="{{ club.id }}">
+                                <button type="submit" class="btn btn-primary w-100">加入社团</button>
+                            </form>
+                        {% endif %}
+                    {% endif %}
+                    <a href="{{ url_for('club_details', club_id=club.id) }}" class="btn btn-info w-100">查看详情</a>
+                </div>
+            </div>
+        </div>
     {% endfor %}
 </div>
-{% endblock content %}
+</div>
+
+<!-- 修改确认删除模态框 -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" role="dialog" aria-labelledby="deleteConfirmModalLabel">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteConfirmModalLabel">确认删除</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p id="deleteConfirmMessage"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" onclick="executeDelete()">确认删除</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* 模态框样式 */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1050;
+}
+
+.modal.show {
+    display: block;
+}
+
+.modal-dialog {
+    position: relative;
+    width: auto;
+    margin: 1.75rem auto;
+    max-width: 500px;
+}
+
+.modal-dialog-centered {
+    display: flex;
+    align-items: center;
+    min-height: calc(100% - 3.5rem);
+}
+
+.modal-content {
+    position: relative;
+    background: #fff;
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    width: 100%;
+}
+
+.modal-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    padding: 1rem 1.5rem;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    padding: 1rem 1.5rem;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    .modal-dialog {
+        margin: 1rem;
+    }
+    
+    .modal-content {
+        border-radius: 8px;
+    }
+    
+    .modal-header,
+    .modal-body,
+    .modal-footer {
+        padding: 1rem;
+    }
+    
+    .modal-footer {
+        flex-direction: column;
+    }
+    
+    .modal-footer .btn {
+        width: 100%;
+        margin: 0.25rem 0;
+    }
+}
+</style>
+
+<script>
+// 初始化变量
+let currentDeleteType = '';
+let currentDeleteId = null;
+let deleteModal = null;
+
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', function() {
+    const modalElement = document.getElementById('deleteConfirmModal');
+    
+    // 移除所有可能存在的 modal-backdrop
+    document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+    
+    // 初始化模态框
+    deleteModal = new bootstrap.Modal(modalElement, {
+        backdrop: false,  // 禁用 backdrop
+        keyboard: true
+    });
+    
+    // 自定义背景点击处理
+    modalElement.addEventListener('click', function(e) {
+        if (e.target === this) {
+            deleteModal.hide();
+        }
+    });
+    
+    // 处理模态框显示时的焦点管理
+    modalElement.addEventListener('shown.bs.modal', function () {
+        // 确保没有 backdrop
+        document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+        modalElement.removeAttribute('aria-hidden');
+        document.querySelector('#deleteConfirmModal .btn-danger').focus();
+    });
+    
+    // 处理模态框隐藏时的焦点管理
+    modalElement.addEventListener('hidden.bs.modal', function () {
+        document.activeElement.blur();
+        // 再次确保没有 backdrop
+        document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+    });
+});
+
+// 添加一个 MutationObserver 来监视和移除任何新添加的 modal-backdrop
+const observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+        mutation.addedNodes.forEach(function(node) {
+            if (node.classList && node.classList.contains('modal-backdrop')) {
+                node.remove();
+            }
+        });
+    });
+});
+
+// 开始观察 document.body 的子节点变化
+observer.observe(document.body, { childList: true });
+
+// 显示删除确认框
+function showDeleteConfirm(type, id, name) {
+    currentDeleteType = type;
+    currentDeleteId = id;
+    const message = type === 'club' ? 
+        `确定要删除课程 "${name}" 吗？` : 
+        `确定要删除用户 "${name}" 吗？`;
+    document.getElementById('deleteConfirmMessage').textContent = message + '此操作不可恢复。';
+    deleteModal.show();
+}
+
+// 执行删除操作
+function executeDelete() {
+    const url = currentDeleteType === 'club' ? 
+        `/delete_club/${currentDeleteId}` : 
+        `/delete_user/${currentDeleteId}`;
+    
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (response.ok) {
+            location.reload();
+        } else {
+            return response.json().then(data => {
+                throw new Error(data.error || '删除失败');
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert(error.message || '删除失败，请重试');
+    })
+    .finally(() => {
+        deleteModal.hide();
+    });
+}
+</script>
+{% endblock %}
 
 <meta name="viewport" content="width=device-width, initial-scale=1">

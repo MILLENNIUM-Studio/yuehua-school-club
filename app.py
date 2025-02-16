@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, flash, request, abort
+from flask import Flask, render_template, redirect, url_for, flash, request, abort, jsonify, session
 from wtforms import Form, StringField, PasswordField, SubmitField, SelectField
 from wtforms.validators import DataRequired, Length
 from flask_sqlalchemy import SQLAlchemy
@@ -13,19 +13,22 @@ from werkzeug.utils import secure_filename
 from functools import wraps
 from datetime import datetime
 import os
-from forms import LoginForm, RegisterForm, JoinClubForm, LeaveClubForm, TransferMembershipForm, AddUserForm, DeleteUserForm, InitiateTransferForm, ConfirmTransferForm, AddClubForm, EditClubForm, EditClubLimitForm
+from forms import LoginForm, RegisterForm, JoinClubForm, LeaveClubForm, TransferMembershipForm, AddUserForm, DeleteUserForm, InitiateTransferForm, ConfirmTransferForm, AddClubForm, EditClubForm, EditClubLimitForm, DeleteClubForm
 from flask_migrate import Migrate
 from models import db, User, Club, Membership, TransferRequest
+import time
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'HPSBNWHVTDs4CwYPPMr8'  # 请确保使用强随机密钥
-app.config['WTF_CSRF_ENABLED'] = False  # 禁用全局 CSRF 防护
+app.config['SECRET_KEY'] = 'HPSBNWHVTDs4CwYPPMr8'
+app.config['WTF_CSRF_ENABLED'] = False  # 禁用 CSRF 保护
+app.config['WTF_CSRF_TIME_LIMIT'] = None  # 移除 CSRF 令牌时间限制
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'  # 使用适当的数据库URI
 app.config['SESSION_COOKIE_SECURE'] = False  # 不使用 HTTPS 时设置为 False
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB 文件大小限制
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31536000  # 1年缓存
 
 # 初始化扩展
 db.init_app(app)
@@ -79,11 +82,18 @@ def register():
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('index'))
-    form = LoginForm(request.form)  # 传递 request.form
+    
+    form = LoginForm(request.form)
     if request.method == 'POST' and form.validate():
         user = User.query.filter_by(username=form.username.data).first()
         if user and user.check_password(form.password.data):
+            # 添加日志记录
+            print(f"User login attempt - Username: {user.username}, Role: {user.role}")
+            
+            # 先存储角色，再登录用户
+            session['user_role'] = user.role
             login_user(user)
+            
             flash('登录成功！', 'success')
             return redirect(url_for('index'))
         else:
@@ -93,6 +103,7 @@ def login():
 @app.route('/logout')
 @login_required
 def logout():
+    session.pop('user_role', None)  # 清除角色信息
     logout_user()
     flash('您已登出。', 'info')
     return redirect(url_for('login'))
@@ -100,21 +111,24 @@ def logout():
 @app.route('/')
 @login_required
 def index():
+    # 打印调试信息
+    print(f"Current user: {current_user.username}")
+    print(f"Session role: {session.get('user_role')}")
+    print(f"User role: {current_user.role}")
+    
     clubs = Club.query.all()
     user_memberships = [membership.club.id for membership in current_user.memberships]
-    
-    # 获取收到的待确认转让请求数量
     pending_transfers_count = TransferRequest.query.filter_by(to_user_id=current_user.id, status='pending').count()
     
-    # 添加表单实例
-    join_form = JoinClubForm()
-    join_form.club.choices = [(club.id, club.name) for club in Club.query.all()]
+    # 严格检查管理员权限
+    is_admin = current_user.is_admin()
+    users = User.query.all() if is_admin else None
     
     return render_template('index.html', 
                          clubs=clubs, 
+                         users=users if is_admin else None,
                          user_memberships=user_memberships, 
-                         pending_transfers_count=pending_transfers_count,
-                         JoinClubForm=join_form)  # 传递表单实例
+                         pending_transfers_count=pending_transfers_count)
 
 @app.route('/club/<int:club_id>')
 @login_required
@@ -143,17 +157,40 @@ def add_club():
         return redirect(url_for('index'))
     return render_template('add_club.html', form=form)
 
-@app.route('/delete_club/<int:club_id>', methods=['POST'])
+@app.route('/delete_club', methods=['GET', 'POST'])
 @login_required
-def delete_club(club_id):
+def delete_club():
     if not current_user.is_admin():
         abort(403)
     
-    club = Club.query.get_or_404(club_id)
-    db.session.delete(club)
-    db.session.commit()
-    flash('成功删除社团。', 'success')
-    return redirect(url_for('index'))
+    form = DeleteClubForm()
+    # 获取要删除的社团ID（如果通过URL参数传递）
+    club_id = request.args.get('club_id')
+    if club_id:
+        club = Club.query.get(club_id)
+        if club:
+            form.club.choices = [(club.id, club.name)]
+            form.club.data = club.id
+    else:
+        # 获取所有社团作为选项
+        form.club.choices = [(club.id, club.name) for club in Club.query.all()]
+    
+    if form.validate_on_submit():
+        club_id = form.club.data
+        club_to_delete = Club.query.get(club_id)
+        if club_to_delete:
+            # 删除社团的所有会员关系
+            Membership.query.filter_by(club_id=club_id).delete()
+            # 删除社团的所有转让请求
+            TransferRequest.query.filter_by(club_id=club_id).delete()
+            db.session.delete(club_to_delete)
+            db.session.commit()
+            flash('课程已成功删除。', 'success')
+            return redirect(url_for('index'))
+        else:
+            flash('未找到该课程。', 'danger')
+    
+    return render_template('delete_club.html', form=form)
 
 @app.route('/edit_club/<int:club_id>', methods=['GET', 'POST'])
 @login_required
@@ -175,17 +212,20 @@ def edit_club(club_id):
 
 @app.route('/edit_club_limit/<int:club_id>', methods=['GET', 'POST'])
 @login_required
+@admin_required
 def edit_club_limit(club_id):
-    if not current_user.is_admin():
-        abort(403)
-    
     club = Club.query.get_or_404(club_id)
     form = EditClubLimitForm(obj=club)
     
     if form.validate_on_submit():
+        # 验证新的人数限制不小于当前人数
+        if form.member_limit.data < len(club.memberships):
+            flash('新的人数限制不能小于当前已选人数！', 'danger')
+            return render_template('edit_club_limit.html', form=form, club=club)
+            
         club.member_limit = form.member_limit.data
         db.session.commit()
-        flash('社团人数限制已更新。', 'success')
+        flash('课程人数限制已更新。', 'success')
         return redirect(url_for('index'))
     
     return render_template('edit_club_limit.html', form=form, club=club)
@@ -232,59 +272,47 @@ def uploaded_file(filename):
     return redirect(url_for('static', filename='uploads/' + filename))
 
 # 加入社团路由
-@app.route('/join_club', methods=['GET', 'POST'])
+@app.route('/join_club', methods=['POST'])
 @login_required
 def join_club():
-    if current_user.role == 'admin':
-        flash('管理员无需加入社团。', 'info')
+    if current_user.role != 'student':
+        flash('只有学生可以加入社团', 'error')
         return redirect(url_for('index'))
     
-    # 创建表单实例
-    form = JoinClubForm()
-    # 获取所有可加入的社团
-    available_clubs = Club.query.all()
-    form.club.choices = [(club.id, club.name) for club in available_clubs]
+    club_id = request.form.get('club')
+    if not club_id:
+        flash('请选择要加入的社团', 'error')
+        return redirect(url_for('index'))
     
-    if request.method == 'POST':
-        if form.validate_on_submit():
-            club_id = form.club.data
-            club = Club.query.get(club_id)
-            
-            if not club:
-                flash('选择的社团不存在。', 'danger')
-                return redirect(url_for('join_club'))
-            
-            # 检查社团成员数量是否已达上限
-            if len(club.memberships) >= club.member_limit:
-                flash(f'该社团已满员（上限{club.member_limit}人），无法加入。请选择其他社团。', 'warning')
-                return redirect(url_for('join_club'))
-            
-            # 检查当前用户已加入的社团数量
-            current_memberships = Membership.query.filter_by(user_id=current_user.id).count()
-            if current_memberships >= 2:
-                flash('您已加入两个社团，无法再加入更多。', 'warning')
-                return redirect(url_for('join_club'))
-            
-            # 检查是否已经加入该社团
-            existing_membership = Membership.query.filter_by(
-                user_id=current_user.id, 
-                club_id=club_id
-            ).first()
-            
-            if existing_membership:
-                flash('您已加入该社团。', 'info')
-                return redirect(url_for('join_club'))
-            
-            # 创建新的会员关系
-            new_membership = Membership(user_id=current_user.id, club_id=club_id)
-            db.session.add(new_membership)
-            db.session.commit()
-            
-            flash(f'成功加入社团 "{club.name}"。', 'success')
-            return redirect(url_for('index'))
+    club = Club.query.get_or_404(club_id)
     
-    # GET 请求时渲染模板
-    return render_template('join_club.html', form=form)
+    # 检查是否已经是社团成员
+    existing_membership = Membership.query.filter_by(
+        user_id=current_user.id, 
+        club_id=club.id
+    ).first()
+    
+    if existing_membership:
+        flash('您已经是该社团的成员', 'warning')
+        return redirect(url_for('index'))
+    
+    # 检查社团人数是否已满
+    if club.member_limit and len(club.memberships) >= club.member_limit:
+        flash('该社团已达到人数上限', 'error')
+        return redirect(url_for('index'))
+    
+    # 创建新的会员关系
+    membership = Membership(user_id=current_user.id, club_id=club.id)
+    db.session.add(membership)
+    
+    try:
+        db.session.commit()
+        flash('成功加入社团！', 'success')
+    except:
+        db.session.rollback()
+        flash('加入社团失败，请稍后重试', 'error')
+    
+    return redirect(url_for('index'))
 
 # 退出社团路由
 @app.route('/leave_club', methods=['GET', 'POST'])
@@ -406,27 +434,42 @@ def add_user():
         return redirect(url_for('index'))
     return render_template('add_user.html', form=form)
 
-# 删除用户路由（仅管理员可访问）
-@app.route('/delete_user', methods=['GET', 'POST'])
+# 删除用户页面路由
+@app.route('/delete_user', methods=['GET'])
 @login_required
+@admin_required
 def delete_user():
-    if not current_user.is_admin():
-        abort(403)
+    return render_template('delete_user.html')
+
+# 删除用户操作路由
+@app.route('/delete_user/<int:user_id>', methods=['POST'])
+@login_required
+@admin_required
+def delete_user_by_id(user_id):
+    user = User.query.get_or_404(user_id)
     
-    form = DeleteUserForm()
-    form.user.choices = [(user.id, user.username) for user in User.query.filter(User.role != 'admin').all()]
+    # 不允许删除管理员
+    if user.role == 'admin':
+        return jsonify({'error': '不能删除管理员账户'}), 403
     
-    if form.validate_on_submit():
-        user_id = form.user.data
-        user_to_delete = User.query.get(user_id)
-        if user_to_delete:
-            db.session.delete(user_to_delete)
-            db.session.commit()
-            flash('用户已成功删除。', 'success')
-            return redirect(url_for('index'))
-        else:
-            flash('未找到该用户。', 'danger')
-    return render_template('delete_user.html', form=form)
+    try:
+        # 删除用户的所有社团关系
+        Membership.query.filter_by(user_id=user_id).delete()
+        
+        # 删除用户的所有转让请求
+        TransferRequest.query.filter(
+            (TransferRequest.from_user_id == user_id) | 
+            (TransferRequest.to_user_id == user_id)
+        ).delete()
+        
+        # 删除用户
+        db.session.delete(user)
+        db.session.commit()
+        
+        return jsonify({'message': '用户已成功删除'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': '删除用户失败'}), 500
 
 # 发起名额转让请求
 @app.route('/initiate_transfer', methods=['GET', 'POST'])
@@ -556,9 +599,28 @@ def create_admin():
         db.session.add(admin)
         db.session.commit()
 
+@app.after_request
+def add_header(response):
+    # 保留安全头
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    
+    # 对图片文件设置缓存控制
+    if response.mimetype.startswith('image/'):
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+    
+    return response
+
+@app.context_processor
+def utility_processor():
+    return {
+        'timestamp': int(time.time())
+    }
+
 # 启动应用
 if __name__ == '__main__':
     with app.app_context():
         create_tables()  # 创建数据库表
         create_admin()   # 创建管理员账户
-    app.run(debug=True, host='192.168.1.157', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000)

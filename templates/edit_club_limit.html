@@ -1,22 +1,211 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8">
-        <h2>编辑社团人数限制</h2>
-        <form method="POST">
-            {{ form.hidden_tag() }}
-            <div class="form-group">
-                {{ form.member_limit.label }}<br>
-                {{ form.member_limit(size=32) }}<br>
-                {% for error in form.member_limit.errors %}
-                    <span style="color: red;">[{{ error }}]</span>
-                {% endfor %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h2 class="mb-0 fs-4">修改课程人数限制</h2>
+                </div>
+                <div class="card-body">
+                    <form method="POST" class="needs-validation" novalidate>
+                        {{ form.hidden_tag() }}
+                        
+                        <!-- 当前课程信息卡片 -->
+                        <div class="info-card mb-4">
+                            <div class="info-header">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <span class="fw-bold">当前课程：{{ club.name }}</span>
+                            </div>
+                            <div class="info-body">
+                                <div class="info-item">
+                                    <span class="info-label">已选人数：</span>
+                                    <span class="info-value">{{ club.memberships|length }} 人</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">当前限制：</span>
+                                    <span class="info-value">{{ club.member_limit }} 人</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 人数限制输入框 -->
+                        <div class="mb-4">
+                            {{ form.member_limit.label(class="form-label fw-bold") }}
+                            <div class="input-group">
+                                {{ form.member_limit(class="form-control form-control-lg", type="number", min="1", max="100") }}
+                                <span class="input-group-text">人</span>
+                            </div>
+                            <div class="form-text mt-2">
+                                <i class="fas fa-exclamation-circle text-warning me-1"></i>
+                                注意：新的人数限制不能小于当前已选人数
+                            </div>
+                        </div>
+
+                        <!-- 按钮组 -->
+                        <div class="d-flex justify-content-between align-items-center">
+                            <a href="{{ url_for('index') }}" class="btn btn-light px-4">
+                                <i class="fas fa-arrow-left me-2"></i>返回
+                            </a>
+                            {{ form.submit(class="btn btn-primary px-4") }}
+                        </div>
+                    </form>
+                </div>
             </div>
-            <div class="form-group">
-                {{ form.submit(class="btn btn-primary") }}
+
+            <!-- 补充说明卡片 -->
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-lightbulb text-warning me-2"></i>
+                        操作说明
+                    </h5>
+                    <div class="tips-list">
+                        <div class="tip-item">
+                            <i class="fas fa-check text-success"></i>
+                            <span>修改人数限制不会影响已选课的学生</span>
+                        </div>
+                        <div class="tip-item">
+                            <i class="fas fa-check text-success"></i>
+                            <span>增加人数限制可以让更多学生选课</span>
+                        </div>
+                        <div class="tip-item">
+                            <i class="fas fa-exclamation-circle text-warning"></i>
+                            <span>减少人数限制将暂时阻止新学生选课</span>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </form>
+        </div>
     </div>
 </div>
+
+<style>
+/* 卡片样式 */
+.card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    background: #fff;
+}
+
+.card-header {
+    border-bottom: 1px solid #eee;
+    padding: 1.25rem 1.5rem;
+}
+
+/* 信息卡片样式 */
+.info-card {
+    background: #f8f9fa;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.info-header {
+    background: #e9ecef;
+    padding: 1rem 1.25rem;
+    font-size: 1rem;
+}
+
+.info-body {
+    padding: 1rem 1.25rem;
+}
+
+.info-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.info-item:last-child {
+    margin-bottom: 0;
+}
+
+.info-label {
+    color: #6c757d;
+    width: 100px;
+}
+
+.info-value {
+    font-weight: 500;
+}
+
+/* 表单控件样式 */
+.form-control {
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.form-control:focus {
+    background: rgba(255, 255, 255, 0.4);
+    box-shadow: none;
+    outline: none;
+    border-color: rgba(0, 0, 0, 0.2);
+}
+
+.input-group-text {
+    background: rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    color: #495057;
+}
+
+/* 提示列表样式 */
+.tips-list {
+    margin-top: 1rem;
+}
+
+.tip-item {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0;
+}
+
+.tip-item i {
+    width: 24px;
+    margin-right: 0.75rem;
+}
+
+/* 按钮样式 */
+.btn {
+    padding: 0.625rem 1.25rem;
+    font-weight: 500;
+    border-radius: 6px;
+}
+
+.btn-light {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+}
+
+.btn-primary {
+    background: #0d6efd;
+    border: none;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .container {
+        padding: 1rem;
+    }
+    
+    .card-header {
+        padding: 1rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .info-header {
+        padding: 0.75rem 1rem;
+    }
+    
+    .info-body {
+        padding: 0.75rem 1rem;
+    }
+}
+</style>
 {% endblock %} 

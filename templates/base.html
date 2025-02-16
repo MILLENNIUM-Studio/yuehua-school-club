@@ -3,20 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ title if title else "东莞市粤华学校社团系统" }}</title>
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <!-- 添加网站图标 -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/logo.png') }}">
+    <title>{{ title if title else "\"智\"换第二课堂" }}</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- 自定义 CSS -->
-    <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/styles.css', v=timestamp) }}" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
 </head>
 <body>
     <!-- 导航栏 -->
     <nav class="navbar navbar-expand-lg">
         <div class="container-fluid">
             <a class="navbar-brand" href="{{ url_for('index') }}">
-                <!-- 可选：导航栏 Logo -->
                 <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo">
-                东莞市粤华学校社团系统
+                "智"换第二课堂
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" 
                 aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
@@ -41,10 +44,7 @@
                                 <a class="nav-link" href="{{ url_for('add_user') }}">添加用户</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('delete_user') }}">删除用户</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('add_club') }}">添加社团</a>
+                                <a class="nav-link" href="{{ url_for('add_club') }}">添加课程</a>
                             </li>
                         {% endif %}
                         <li class="nav-item">
@@ -58,7 +58,6 @@
                             <a class="nav-link" href="{{ url_for('register') }}">注册</a>
                         </li>
                     {% endif %}
-                    <!-- About Us 按钮 -->
                     <li class="nav-item">
                         <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#aboutUsModal">About Us</a>
                     </li>
@@ -83,37 +82,31 @@
     </div>
 
     <!-- About Us 模态框 -->
-    <div class="modal fade" id="aboutUsModal" tabindex="-1" aria-labelledby="aboutUsModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content frosted-glass">
-                <div class="modal-header border-0">
-                    <h5 class="modal-title text-white">关于我们</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div class="modal fade" id="aboutUsModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">"智"换第二课堂</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body text-white">
-                    <div class="text-center mb-4">
-                        <h4>东莞市粤华学校社团系统</h4>
+                <div class="modal-body">
+                    <div class="info-section">
+                        <h5>社团活动</h5>
+                        <p>丰富多彩的社团活动，培养兴趣特长</p>
                     </div>
-                    <div class="about-content">
-                        <div class="info-card mb-3">
-                            <h5>社团活动</h5>
-                            <p>丰富多彩的社团活动，培养兴趣特长</p>
-                        </div>
-                        <div class="info-card mb-3">
-                            <h5>个人发展</h5>
-                            <p>展示才能，提升综合素质</p>
-                        </div>
-                        <div class="info-card mb-3">
-                            <h5>交流合作</h5>
-                            <p>结识志同道合的伙伴</p>
-                        </div>
-                        <div class="contact-info text-center mt-4">
-                            <p>联系我们：admin@yuehua.edu.cn</p>
-                        </div>
+                    <div class="info-section">
+                        <h5>个人发展</h5>
+                        <p>展示才能，提升综合素质</p>
                     </div>
-                </div>
-                <div class="modal-footer border-0">
-                    <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">关闭</button>
+                    <div class="info-section">
+                        <h5>交流合作</h5>
+                        <p>结识志同道合的伙伴</p>
+                    </div>
+                    <div class="contact-section">
+                        <p>Powered by MILLENNIUM STUDIO</p>
+                        <p>Copyright © 2025 MILLENNIUM STUDIO.</p>
+                        <p>联系我们：millenniumstudio907@gmail.com</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -121,5 +114,8 @@
 
     <!-- Bootstrap JS (包括 Popper) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- 自定义脚本 -->
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html>
